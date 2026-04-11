@@ -140,6 +140,14 @@ async function seedIfEmpty() {
 // ── HELPERS ───────────────────────────────────────────────────
 function todayISO()   { return new Date().toISOString().slice(0,10); }
 function weekISO()    { const d=new Date(); d.setDate(d.getDate()+7); return d.toISOString().slice(0,10); }
+function weekBoundsISO() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const mon = new Date(now); mon.setDate(now.getDate() + diffToMonday);
+  const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+  return { mon: mon.toISOString().slice(0,10), fri: fri.toISOString().slice(0,10) };
+}
 function fmtDate(iso) { if(!iso) return ''; const [y,m,d]=iso.split('-'); return `${m}/${d}/${y}`; }
 function esc(s)       { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
@@ -166,9 +174,13 @@ function tasksFor(mId) {
 
 function taskDateClass(t) {
   if (t.completed || t.isOngoing || !t.dueDate) return '';
-  const today = todayISO(), week = weekISO();
-  if (t.dueDate < today) return 'overdue';
-  if (t.dueDate <= week) return 'upcoming';
+  const [ty, tm, td] = todayISO().split('-').map(Number);
+  const [dy, dm, dd] = t.dueDate.split('-').map(Number);
+  const diff = Math.round((Date.UTC(dy, dm-1, dd) - Date.UTC(ty, tm-1, td)) / 86400000);
+  if (diff < 0)   return 'overdue';
+  if (diff === 0) return 'due-today';
+  if (diff <= 3)  return 'due-soon';
+  if (diff <= 10) return 'upcoming-soon';
   return '';
 }
 
@@ -197,6 +209,9 @@ function setTab(id) { activeTab = id; render(); }
 
 function renderContent() {
   const el = document.getElementById('tab-content');
+  // Don't clobber a textarea the user is actively typing in
+  const active = document.activeElement;
+  if (active && active.tagName === 'TEXTAREA' && el.contains(active)) return;
   if (activeTab === 'overview')    el.innerHTML = renderOverview();
   else if (activeTab === '__manage') el.innerHTML = renderManage();
   else {
@@ -216,18 +231,21 @@ const ROLE_COLORS = {
 // ── OVERVIEW ──────────────────────────────────────────────────
 function renderOverview() {
   const today = todayISO(), week = weekISO();
-  let overdue = 0, upcoming = 0;
+  const { mon, fri } = weekBoundsISO();
+  let overdue = 0, dueToday = 0, dueThisWeek = 0;
   Object.values(tasks).forEach(t => {
     if (t.completed || t.isOngoing || !t.dueDate) return;
     if (t.dueDate < today) overdue++;
-    else if (t.dueDate <= week) upcoming++;
+    if (t.dueDate === today) dueToday++;
+    if (t.dueDate >= mon && t.dueDate <= fri) dueThisWeek++;
   });
 
   let html = `<div class="stats-grid">
     <div class="stat-card stat-primary"><div class="stat-val">${Object.keys(attorneys).length}</div><div class="stat-lbl">Staff</div></div>
     <div class="stat-card stat-primary"><div class="stat-val">${Object.keys(matters).length}</div><div class="stat-lbl">Active Matters</div></div>
     <div class="stat-card stat-overdue"><div class="stat-val">${overdue}</div><div class="stat-lbl">Overdue Tasks</div></div>
-    <div class="stat-card stat-upcoming"><div class="stat-val">${upcoming}</div><div class="stat-lbl">Due This Week</div></div>
+    <div class="stat-card stat-upcoming"><div class="stat-val">${dueThisWeek}</div><div class="stat-lbl">Due This Week</div></div>
+    <div class="stat-card stat-due-today"><div class="stat-val">${dueToday}</div><div class="stat-lbl">Due Today</div></div>
   </div><h2 style="font-size:.9rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Staff at a Glance</h2>`;
 
   for (const [aId, a] of sortedAttorneys()) {
@@ -270,19 +288,36 @@ function renderOverview() {
 // ── ATTORNEY TAB ──────────────────────────────────────────────
 function renderAttorneyTab(aId, a) {
   const today = todayISO(), week = weekISO();
-  let html = `<div class="atty-hdr"><h2>${esc(a.name)}</h2>
-    <button class="btn btn-primary" onclick="openAddMatter('${aId}')">+ Add Matter</button></div>`;
+  const roleStyle = ROLE_COLORS[a.role||'Attorney'] || '';
+  let html = `<div class="atty-hdr">
+    <h2>${esc(a.name)} <span style="font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;${roleStyle}">${esc(a.role||'Attorney')}</span></h2>
+    <button class="btn btn-primary" onclick="openAddMatter('${aId}')">+ Add Matter</button>
+  </div>
+  <div style="margin-bottom:18px">
+    <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Recent Status Notes</div>
+    <textarea
+      id="status-notes-${aId}"
+      placeholder="e.g. Out on vacation next week, sick Tuesday…"
+      onblur="saveStatusNotes('${aId}', this.value)"
+      style="width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:.88rem;font-family:inherit;color:var(--text);resize:vertical;min-height:58px;background:var(--surface)"
+    >${esc(a.statusNotes||'')}</textarea>
+  </div>`;
 
   const aMatters = mattersFor(aId);
   if (!aMatters.length) return html + `<div class="empty-state">No matters yet. Click "+ Add Matter" to get started.</div>`;
 
-  for (const [mId, m] of aMatters) {
+  for (let i = 0; i < aMatters.length; i++) {
+    const [mId, m] = aMatters[i];
     const others = (m.attorneyIds||[]).filter(id => id !== aId).map(id => attorneys[id]?.name).filter(Boolean);
+    const isFirst = i === 0, isLast = i === aMatters.length - 1;
+    const upBtn   = `<button class="btn btn-ghost btn-sm" onclick="moveMatter('${mId}','${aId}',-1)" title="Move up"   ${isFirst ? 'style="opacity:.3;pointer-events:none"' : ''}>↑</button>`;
+    const downBtn = `<button class="btn btn-ghost btn-sm" onclick="moveMatter('${mId}','${aId}',1)"  title="Move down" ${isLast  ? 'style="opacity:.3;pointer-events:none"' : ''}>↓</button>`;
     html += `<div class="matter-card">
       <div class="matter-hdr">
         <span class="matter-name">${esc(m.name)}</span>
         ${others.length ? `<span class="matter-also">also: ${esc(others.join(', '))}</span>` : ''}
         <div class="matter-actions">
+          ${aMatters.length > 1 ? upBtn + downBtn : ''}
           <button class="btn btn-ghost btn-sm" onclick="openEditMatter('${mId}','${aId}')">Edit</button>
           <button class="btn btn-danger btn-sm" onclick="confirmDel('matter','${mId}','${esc(m.name)}')">Delete</button>
         </div>
@@ -336,8 +371,10 @@ function taskRow(tId, t, today, week) {
     dateCell = t.dueDate
       ? `<td class="task-date ${dc}">${dc==='overdue' ? '⚠ ' : ''}${fmtDate(t.dueDate)}</td>`
       : `<td class="task-date">—</td>`;
-    statusCell = dc==='overdue'  ? `<td><span class="badge badge-overdue">Overdue</span></td>`
-               : dc==='upcoming' ? `<td><span class="badge badge-upcoming">Due Soon</span></td>`
+    statusCell = dc==='overdue'       ? `<td><span class="badge badge-overdue">Overdue</span></td>`
+               : dc==='due-today'     ? `<td><span class="badge badge-due-today">Due Today</span></td>`
+               : dc==='due-soon'      ? `<td><span class="badge badge-due-soon">Due Soon</span></td>`
+               : dc==='upcoming-soon' ? `<td><span class="badge badge-upcoming-soon">Upcoming</span></td>`
                : `<td></td>`;
   }
 
@@ -385,9 +422,26 @@ function renderManage() {
   return html + '</div></div>';
 }
 
+// ── CRUD: MATTER ORDER ────────────────────────────────────────
+async function moveMatter(mId, aId, dir) {
+  const aMatters = mattersFor(aId);
+  const idx = aMatters.findIndex(([id]) => id === mId);
+  const swapIdx = idx + dir;
+  if (swapIdx < 0 || swapIdx >= aMatters.length) return;
+  const thisOrder = aMatters[idx][1].order ?? idx;
+  const swapOrder = aMatters[swapIdx][1].order ?? swapIdx;
+  const batch = db.batch();
+  batch.update(db.collection('matters').doc(aMatters[idx][0]),     { order: swapOrder });
+  batch.update(db.collection('matters').doc(aMatters[swapIdx][0]), { order: thisOrder });
+  await batch.commit();
+}
+
 // ── CRUD: TASK ────────────────────────────────────────────────
 async function toggleTask(id, completed, date) {
   await db.collection('tasks').doc(id).update({ completed, completedDate: completed ? (date || todayISO()) : null });
+}
+async function saveStatusNotes(aId, value) {
+  await db.collection('attorneys').doc(aId).update({ statusNotes: value.trim() });
 }
 
 // ── COMPLETE MODAL ────────────────────────────────────────────
