@@ -150,11 +150,27 @@ header h1{font-size:1rem;font-weight:700}
   <nav id="tab-nav"></nav>
   <div id="tab-content"><div class="empty-state">Loading…</div></div></div>
 <div id="modal-attorney" class="modal-overlay hidden"><div class="modal">
-    <h2 id="matty-title">Add Attorney</h2>
+    <h2 id="matty-title">Add Staff Member</h2>
     <div class="form-group"><label>Name</label><input id="matty-name" type="text" placeholder="Full name" /></div>
+    <div class="form-group"><label>Role</label>
+      <select id="matty-role" style="width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:.88rem;font-family:inherit;color:var(--text)">
+        <option value="Attorney">Attorney</option>
+        <option value="Investigator">Investigator</option>
+        <option value="Paralegal">Paralegal</option>
+      </select>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-attorney')">Cancel</button>
       <button class="btn btn-primary" id="matty-save">Save</button>
+    </div>
+  </div></div>
+<div id="modal-complete" class="modal-overlay hidden"><div class="modal" style="max-width:360px">
+    <h2>Mark Task Complete</h2>
+    <p style="color:var(--muted);font-size:.85rem;margin-bottom:16px" id="mcomplete-desc"></p>
+    <div class="form-group"><label>Completion Date</label><input id="mcomplete-date" type="date" /></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cancelCompleteModal()">Cancel</button>
+      <button class="btn btn-primary" id="mcomplete-save">Mark Complete</button>
     </div>
   </div></div>
 <div id="modal-matter" class="modal-overlay hidden"><div class="modal">
@@ -275,13 +291,22 @@ async function seedIfEmpty() {
   }
 
   const batch = db.batch();
-  const NAMES = ['Jill Abrams','Sarah Aceves','Merideth Chaudoir','Rose Kennedy',
-    'Rizlaine Sabiani','Justin Sherman','Alex Spring','Andre Souligny',
-    'Jonathan Goddard','Gabriela Ferrari'];
+  const STAFF = [
+    {name:'Jill Abrams',     role:'Attorney'},
+    {name:'Sarah Aceves',    role:'Attorney'},
+    {name:'Merideth Chaudoir',role:'Attorney'},
+    {name:'Rose Kennedy',    role:'Attorney'},
+    {name:'Rizlaine Sabiani',role:'Attorney'},
+    {name:'Justin Sherman',  role:'Attorney'},
+    {name:'Alex Spring',     role:'Attorney'},
+    {name:'Andre Souligny',  role:'Investigator'},
+    {name:'Jonathan Goddard',role:'Investigator'},
+    {name:'Gabriela Ferrari',role:'Paralegal'},
+  ];
   const aIds = {};
-  NAMES.forEach((name, i) => {
+  STAFF.forEach(({name, role}, i) => {
     const r = db.collection('attorneys').doc(); aIds[name] = r.id;
-    batch.set(r, { name, order: i });
+    batch.set(r, { name, role, order: i });
   });
 
   const jId = aIds['Jonathan Goddard'];
@@ -327,7 +352,17 @@ function todayISO()      { return new Date().toISOString().slice(0,10); }
 function weekISO()       { const d=new Date(); d.setDate(d.getDate()+7); return d.toISOString().slice(0,10); }
 function fmtDate(iso)    { if(!iso) return ''; const [y,m,d]=iso.split('-'); return `${m}/${d}/${y}`; }
 function esc(s)          { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-function sortedAttorneys(){ return Object.entries(attorneys).sort((a,b)=>(a[1].order??0)-(b[1].order??0)); }
+function sortedAttorneys(){
+  const roleOrder = {'Attorney':0,'Investigator':1,'Paralegal':2};
+  return Object.entries(attorneys).sort((a,b)=>{
+    const ra = roleOrder[a[1].role??'Attorney']??0;
+    const rb = roleOrder[b[1].role??'Attorney']??0;
+    if (ra!==rb) return ra-rb;
+    const la = (a[1].name||'').split(' ').pop().toLowerCase();
+    const lb = (b[1].name||'').split(' ').pop().toLowerCase();
+    return la.localeCompare(lb);
+  });
+}
 function mattersFor(aId) { return Object.entries(matters).filter(([,m])=>m.attorneyIds?.includes(aId)).sort((a,b)=>(a[1].order??0)-(b[1].order??0)); }
 function tasksFor(mId)   { return Object.entries(tasks).filter(([,t])=>t.matterId===mId).sort((a,b)=>(a[1].order??0)-(b[1].order??0)); }
 
@@ -381,11 +416,11 @@ function renderOverview() {
   });
 
   let html = `<div class="stats-grid">
-    <div class="stat-card stat-primary"><div class="stat-val">${Object.keys(attorneys).length}</div><div class="stat-lbl">Attorneys</div></div>
+    <div class="stat-card stat-primary"><div class="stat-val">${Object.keys(attorneys).length}</div><div class="stat-lbl">Staff</div></div>
     <div class="stat-card stat-primary"><div class="stat-val">${Object.keys(matters).length}</div><div class="stat-lbl">Active Matters</div></div>
     <div class="stat-card stat-overdue"><div class="stat-val">${overdue}</div><div class="stat-lbl">Overdue Tasks</div></div>
     <div class="stat-card stat-upcoming"><div class="stat-val">${upcoming}</div><div class="stat-val stat-lbl">Due This Week</div></div>
-  </div><h2 style="font-size:.9rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Attorneys at a Glance</h2>`;
+  </div><h2 style="font-size:.9rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Staff at a Glance</h2>`;
 
   for (const [aId, a] of sortedAttorneys()) {
     const aMatters = mattersFor(aId);
@@ -398,9 +433,11 @@ function renderOverview() {
     badges += aUpcoming ? `<span class="badge badge-upcoming">${aUpcoming} due soon</span>` : '';
     if (!aOverdue&&!aUpcoming) badges = `<span class="badge badge-ok">On track</span>`;
 
+    const roleStyle = ROLE_COLORS[a.role||'Attorney']||'';
     html += `<div class="overview-card">
       <div class="overview-card-hdr" onclick="setTab('${aId}')">
-        <h3>${esc(a.name)}</h3><div class="badge-row">${badges}</div>
+        <h3>${esc(a.name)} <span style="font-size:.68rem;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;${roleStyle}">${esc(a.role||'Attorney')}</span></h3>
+        <div class="badge-row">${badges}</div>
       </div>
       <div class="overview-matters">`;
 
@@ -482,7 +519,7 @@ function taskRow(tId, t, today, week) {
     dateCell = `<td class="task-date done-date">${t.completedDate?fmtDate(t.completedDate):'Done'}</td>`;
     statusCell = `<td><span class="done-pill">✓ Complete</span></td>`;
   } else {
-    ctrl = `<input type="checkbox" class="task-checkbox" onchange="toggleTask('${tId}',true)">`;
+    ctrl = `<input type="checkbox" class="task-checkbox" onchange="openCompleteModal('${tId}',this)">`;
     dateCell = t.dueDate
       ? `<td class="task-date ${dc}">${dc==='overdue'?'⚠ ':''}${fmtDate(t.dueDate)}</td>`
       : `<td class="task-date">—</td>`;
@@ -504,23 +541,36 @@ function taskRow(tId, t, today, week) {
 }
 
 // ── MANAGE TAB ────────────────────────────────────────────────
+const ROLE_COLORS = {
+  'Attorney':   'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe',
+  'Investigator':'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0',
+  'Paralegal':  'background:#fdf4ff;color:#7e22ce;border:1px solid #e9d5ff',
+};
 function renderManage() {
-  let html = `<div style="max-width:560px">
+  let html = `<div style="max-width:600px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <h2 style="font-size:1.05rem;font-weight:700">Manage Attorneys</h2>
-      <button class="btn btn-primary" onclick="openAddAttorney()">+ Add Attorney</button>
+      <h2 style="font-size:1.05rem;font-weight:700">Manage Staff</h2>
+      <button class="btn btn-primary" onclick="openAddAttorney()">+ Add Staff Member</button>
     </div>
     <div style="background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow:hidden">`;
   const list = sortedAttorneys();
-  if (!list.length) html += `<div class="empty-state">No attorneys yet.</div>`;
+  if (!list.length) html += `<div class="empty-state">No staff yet.</div>`;
+  let lastRole = null;
   for (const [id, a] of list) {
+    const role = a.role || 'Attorney';
+    if (role !== lastRole) {
+      lastRole = role;
+      html += `<div style="padding:6px 16px;background:#f8fafc;border-bottom:1px solid var(--border);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">${role}s</div>`;
+    }
     const mc = mattersFor(id).length;
+    const roleStyle = ROLE_COLORS[role] || '';
     html += `<div class="manage-row">
       <span style="flex:1;font-weight:500">${esc(a.name)}</span>
+      <span style="font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:12px;${roleStyle}">${esc(role)}</span>
       <span style="color:var(--muted);font-size:.8rem;margin-right:14px">${mc} matter${mc!==1?'s':''}</span>
       <div style="display:flex;gap:6px">
         <button class="btn btn-ghost btn-sm" onclick="openEditAttorney('${id}')">Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="confirmDel('attorney','${id}','${esc(a.name)}')">Delete</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmDel('attorney','${id}','${esc(a.name)}')">Remove</button>
       </div>
     </div>`;
   }
@@ -528,9 +578,31 @@ function renderManage() {
 }
 
 // ── CRUD: TASK ────────────────────────────────────────────────
-async function toggleTask(id, completed) {
-  await db.collection('tasks').doc(id).update({ completed, completedDate: completed ? todayISO() : null });
+async function toggleTask(id, completed, date) {
+  await db.collection('tasks').doc(id).update({ completed, completedDate: completed ? (date||todayISO()) : null });
 }
+
+// ── COMPLETE MODAL ────────────────────────────────────────────
+let _completeTaskId=null, _completeCb=null;
+function openCompleteModal(taskId, cb) {
+  _completeTaskId=taskId; _completeCb=cb;
+  const t=tasks[taskId];
+  document.getElementById('mcomplete-desc').textContent=t?.description||'';
+  document.getElementById('mcomplete-date').value=todayISO();
+  document.getElementById('modal-complete').classList.remove('hidden');
+}
+function cancelCompleteModal() {
+  if (_completeCb) _completeCb.checked=false;
+  closeModal('modal-complete');
+}
+document.getElementById('mcomplete-save').onclick = async () => {
+  const date=document.getElementById('mcomplete-date').value||todayISO();
+  await toggleTask(_completeTaskId, true, date);
+  closeModal('modal-complete');
+};
+document.getElementById('modal-complete').addEventListener('click', e => {
+  if (e.target===document.getElementById('modal-complete')) cancelCompleteModal();
+});
 
 let _taskMatter=null, _taskEdit=null;
 function openAddTask(mId) {
@@ -611,25 +683,28 @@ document.getElementById('mmatter-save').onclick = async () => {
 let _attyEdit=null;
 function openAddAttorney() {
   _attyEdit=null;
-  document.getElementById('matty-title').textContent='Add Attorney';
+  document.getElementById('matty-title').textContent='Add Staff Member';
   document.getElementById('matty-name').value='';
+  document.getElementById('matty-role').value='Attorney';
   document.getElementById('modal-attorney').classList.remove('hidden');
   document.getElementById('matty-name').focus();
 }
 function openEditAttorney(id) {
   _attyEdit=id;
-  document.getElementById('matty-title').textContent='Edit Attorney';
+  document.getElementById('matty-title').textContent='Edit Staff Member';
   document.getElementById('matty-name').value=attorneys[id]?.name||'';
+  document.getElementById('matty-role').value=attorneys[id]?.role||'Attorney';
   document.getElementById('modal-attorney').classList.remove('hidden');
   document.getElementById('matty-name').focus();
 }
 document.getElementById('matty-save').onclick = async () => {
   const name=document.getElementById('matty-name').value.trim(); if(!name) return;
+  const role=document.getElementById('matty-role').value;
   if (_attyEdit) {
-    await db.collection('attorneys').doc(_attyEdit).update({ name });
+    await db.collection('attorneys').doc(_attyEdit).update({ name, role });
   } else {
     const order=Object.keys(attorneys).length ? Math.max(...Object.values(attorneys).map(a=>a.order??0))+1 : 0;
-    await db.collection('attorneys').doc().set({ name, order });
+    await db.collection('attorneys').doc().set({ name, role, order });
   }
   closeModal('modal-attorney');
 };
