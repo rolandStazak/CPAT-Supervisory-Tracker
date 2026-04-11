@@ -138,15 +138,20 @@ async function seedIfEmpty() {
 }
 
 // ── HELPERS ───────────────────────────────────────────────────
-function todayISO()   { return new Date().toISOString().slice(0,10); }
-function weekISO()    { const d=new Date(); d.setDate(d.getDate()+7); return d.toISOString().slice(0,10); }
+// Use local-time date methods so the date is always correct in the user's timezone.
+// toISOString() returns UTC and would show tomorrow's date after 8 PM Eastern.
+function localISO(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function todayISO()   { return localISO(); }
+function weekISO()    { const d=new Date(); d.setDate(d.getDate()+7); return localISO(d); }
 function weekBoundsISO() {
   const now = new Date();
   const day = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
   const diffToMonday = day === 0 ? -6 : 1 - day;
   const mon = new Date(now); mon.setDate(now.getDate() + diffToMonday);
   const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
-  return { mon: mon.toISOString().slice(0,10), fri: fri.toISOString().slice(0,10) };
+  return { mon: localISO(mon), fri: localISO(fri) };
 }
 function fmtDate(iso) { if(!iso) return ''; const [y,m,d]=iso.split('-'); return `${m}/${d}/${y}`; }
 function esc(s)       { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
