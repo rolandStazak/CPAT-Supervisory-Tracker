@@ -251,7 +251,11 @@ function renderOverview() {
     <div class="stat-card stat-overdue"><div class="stat-val">${overdue}</div><div class="stat-lbl">Overdue Tasks</div></div>
     <div class="stat-card stat-upcoming"><div class="stat-val">${dueThisWeek}</div><div class="stat-lbl">Due This Week</div></div>
     <div class="stat-card stat-due-today"><div class="stat-val">${dueToday}</div><div class="stat-lbl">Due Today</div></div>
-  </div><h2 style="font-size:.9rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Staff at a Glance</h2>`;
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <h2 style="font-size:.9rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Staff at a Glance</h2>
+    <button class="btn btn-ghost" onclick="exportToExcel()" style="font-size:.8rem">⬇ Export to Excel</button>
+  </div>`;
 
   for (const [aId, a] of sortedAttorneys()) {
     const aMatters = mattersFor(aId);
@@ -616,6 +620,91 @@ document.getElementById('mconfirm-ok').onclick = async () => {
   }
   _del = null; closeModal('modal-confirm');
 };
+
+// ── EXPORT ────────────────────────────────────────────────────
+function exportToExcel() {
+  const wb = XLSX.utils.book_new();
+  const today = todayISO();
+
+  // ── Overview sheet ──────────────────────────────────────────
+  const ovRows = [
+    ['CPAT Supervisory Tracker'],
+    [`Exported: ${new Date().toLocaleString('en-US')}`],
+    [],
+    ['Staff Member', 'Role', 'Status Notes', 'Total Matters', 'Open Tasks', 'Overdue Tasks'],
+  ];
+  for (const [aId, a] of sortedAttorneys()) {
+    const aMatters = mattersFor(aId);
+    let open = 0, overdue = 0;
+    aMatters.forEach(([mid]) => tasksFor(mid).forEach(([, t]) => {
+      if (t.completed || t.isOngoing) return;
+      open++;
+      if (t.dueDate && t.dueDate < today) overdue++;
+    }));
+    ovRows.push([a.name, a.role || 'Attorney', a.statusNotes || '', aMatters.length, open, overdue]);
+  }
+  const ovWs = XLSX.utils.aoa_to_sheet(ovRows);
+  ovWs['!cols'] = [{ wch: 22 }, { wch: 13 }, { wch: 42 }, { wch: 14 }, { wch: 11 }, { wch: 13 }];
+  XLSX.utils.book_append_sheet(wb, ovWs, 'Overview');
+
+  // ── Per-staff sheets ────────────────────────────────────────
+  for (const [aId, a] of sortedAttorneys()) {
+    const rows = [
+      [a.name, a.role || 'Attorney'],
+      ['Status Notes:', a.statusNotes || ''],
+      [],
+    ];
+    for (const [mId, m] of mattersFor(aId)) {
+      const others = (m.attorneyIds||[]).filter(id => id !== aId).map(id => attorneys[id]?.name).filter(Boolean);
+      const shared = others.length ? ` (shared with: ${others.join(', ')})` : '';
+      rows.push([`Matter: ${m.name}${shared}`]);
+      rows.push(['Task', 'Due Date', 'Status', 'Completion Date', 'Notes']);
+
+      const mTasks = tasksFor(mId);
+      const ongoing = mTasks.filter(([, t]) => t.isOngoing);
+      const active  = mTasks.filter(([, t]) => !t.isOngoing && !t.completed)
+                            .sort((a, b) => {
+                              if (!a[1].dueDate && !b[1].dueDate) return 0;
+                              if (!a[1].dueDate) return 1;
+                              if (!b[1].dueDate) return -1;
+                              return a[1].dueDate.localeCompare(b[1].dueDate);
+                            });
+      const done    = mTasks.filter(([, t]) => t.completed);
+
+      for (const [, t] of [...ongoing, ...active, ...done]) {
+        let status;
+        if (t.isOngoing) {
+          status = 'Ongoing';
+        } else if (t.completed) {
+          status = 'Complete';
+        } else {
+          const dc = taskDateClass(t);
+          status = dc === 'overdue'       ? 'Overdue'
+                 : dc === 'due-today'     ? 'Due Today'
+                 : dc === 'due-soon'      ? 'Due Soon'
+                 : dc === 'upcoming-soon' ? 'Upcoming'
+                 : 'Open';
+        }
+        rows.push([
+          t.description,
+          t.dueDate       ? fmtDate(t.dueDate)       : '',
+          status,
+          t.completedDate ? fmtDate(t.completedDate) : '',
+          t.notes || '',
+        ]);
+      }
+      rows.push([]); // blank row between matters
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch: 50 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 52 }];
+    // Excel sheet names: max 31 chars, cannot contain \ / ? * [ ] :
+    const sheetName = a.name.replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  }
+
+  XLSX.writeFile(wb, `CPAT_Tracker_${today}.xlsx`);
+}
 
 // ── KEYBOARD SHORTCUTS ────────────────────────────────────────
 document.getElementById('matty-name').addEventListener('keydown',  e => { if (e.key==='Enter') document.getElementById('matty-save').click(); });
