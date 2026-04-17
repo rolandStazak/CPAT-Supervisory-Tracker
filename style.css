@@ -140,6 +140,21 @@ header h1 { font-size: 1rem; font-weight: 700; }
 /* Empty / misc */
 .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: .88rem; }
 
+/* Task rows for tasks on shared matters not assigned to current viewer */
+.task-row-other td { background: #f8fafc; }
+.task-row-other .task-desc { color: var(--muted); }
+.task-row-other:hover td { background: #f1f5f9; }
+
+/* Assignment chip on task rows */
+.assign-btn { font-size: .72rem; padding: 2px 8px; border-radius: 10px; background: #f1f5f9; color: #475569; border: 1px solid var(--border); cursor: pointer; white-space: nowrap; max-width: 130px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
+.assign-btn:hover { background: #e2e8f0; }
+
+/* Assignment dropdown popover */
+.assign-dropdown { position: absolute; background: var(--surface); border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 12px; box-shadow: 0 4px 20px rgba(0,0,0,.14); z-index: 600; min-width: 190px; }
+.assign-check-row { display: flex; align-items: center; gap: 8px; font-size: .84rem; cursor: pointer; padding: 4px 3px; border-radius: 4px; }
+.assign-check-row:hover { background: var(--bg); }
+.assign-check-row input { width: auto; cursor: pointer; }
+
 @media (max-width: 640px) {
   #tab-content { padding: 14px; }
   header h1 { font-size: .9rem; }

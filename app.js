@@ -157,7 +157,7 @@ function fmtDate(iso) { if(!iso) return ''; const [y,m,d]=iso.split('-'); return
 function esc(s)       { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 function sortedAttorneys() {
-  const roleOrder = {'Attorney':0,'Investigator':1,'Paralegal':2};
+  const roleOrder = {'You':0,'Attorney':1,'Investigator':2,'Paralegal':3};
   return Object.entries(attorneys).sort((a,b) => {
     const ra = roleOrder[a[1].role ?? 'Attorney'] ?? 0;
     const rb = roleOrder[b[1].role ?? 'Attorney'] ?? 0;
@@ -228,6 +228,7 @@ function renderContent() {
 
 // ── ROLE COLORS ───────────────────────────────────────────────
 const ROLE_COLORS = {
+  'You':         'background:#fefce8;color:#92400e;border:1px solid #fde68a',
   'Attorney':    'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe',
   'Investigator':'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0',
   'Paralegal':   'background:#fdf4ff;color:#7e22ce;border:1px solid #e9d5ff',
@@ -317,10 +318,17 @@ function renderAttorneyTab(aId, a) {
 
   for (let i = 0; i < aMatters.length; i++) {
     const [mId, m] = aMatters[i];
-    const others = (m.attorneyIds||[]).filter(id => id !== aId).map(id => attorneys[id]?.name).filter(Boolean);
-    const isFirst = i === 0, isLast = i === aMatters.length - 1;
-    const upBtn   = `<button class="btn btn-ghost btn-sm" onclick="moveMatter('${mId}','${aId}',-1)" title="Move up"   ${isFirst ? 'style="opacity:.3;pointer-events:none"' : ''}>↑</button>`;
-    const downBtn = `<button class="btn btn-ghost btn-sm" onclick="moveMatter('${mId}','${aId}',1)"  title="Move down" ${isLast  ? 'style="opacity:.3;pointer-events:none"' : ''}>↓</button>`;
+    const otherIds = (m.attorneyIds||[]).filter(id => id !== aId);
+    const others   = otherIds.map(id => attorneys[id]?.name).filter(Boolean);
+    const isShared = otherIds.length > 0;
+    const isFirst  = i === 0, isLast = i === aMatters.length - 1;
+    const upBtn    = `<button class="btn btn-ghost btn-sm" onclick="moveMatter('${mId}','${aId}',-1)" title="Move up"   ${isFirst ? 'style="opacity:.3;pointer-events:none"' : ''}>↑</button>`;
+    const downBtn  = `<button class="btn btn-ghost btn-sm" onclick="moveMatter('${mId}','${aId}',1)"  title="Move down" ${isLast  ? 'style="opacity:.3;pointer-events:none"' : ''}>↓</button>`;
+
+    const colHead = isShared
+      ? `<thead><tr><th style="width:26px"></th><th>Task</th><th style="width:105px">Due</th><th style="width:105px">Status</th><th>Notes</th><th style="width:115px">Assigned to</th><th style="width:72px"></th></tr></thead>`
+      : `<thead><tr><th style="width:26px"></th><th>Task</th><th style="width:105px">Due</th><th style="width:105px">Status</th><th>Notes</th><th style="width:72px"></th></tr></thead>`;
+
     html += `<div class="matter-card">
       <div class="matter-hdr">
         <span class="matter-name">${esc(m.name)}</span>
@@ -331,11 +339,9 @@ function renderAttorneyTab(aId, a) {
           <button class="btn btn-danger btn-sm" onclick="confirmDel('matter','${mId}','${esc(m.name)}')">Delete</button>
         </div>
       </div>
-      <table class="task-table">
-        <thead><tr><th style="width:26px"></th><th>Task</th><th style="width:105px">Due</th><th style="width:105px">Status</th><th>Notes</th><th style="width:72px"></th></tr></thead>
-        <tbody>`;
+      <table class="task-table">${colHead}<tbody>`;
 
-    const mTasks = tasksFor(mId);
+    const mTasks  = tasksFor(mId);
     const ongoing = mTasks.filter(([,t]) => t.isOngoing);
     const active  = mTasks.filter(([,t]) => !t.isOngoing && !t.completed)
                           .sort((a,b) => {
@@ -345,13 +351,29 @@ function renderAttorneyTab(aId, a) {
                             return a[1].dueDate.localeCompare(b[1].dueDate);
                           });
     const done    = mTasks.filter(([,t]) => t.completed);
+    const si      = isShared ? { mId, aId } : null;
 
-    for (const [tId, t] of [...ongoing, ...active]) html += taskRow(tId, t, today, week);
+    if (isShared) {
+      // Tasks assigned to this person (or unassigned) come first; others are de-emphasised below
+      const mine  = ([,t]) => !t.assignedTo?.length || t.assignedTo.includes(aId);
+      const theirs = ([,t]) => t.assignedTo?.length > 0 && !t.assignedTo.includes(aId);
+
+      for (const [tId, t] of [...ongoing.filter(mine),  ...active.filter(mine)])  html += taskRow(tId, t, today, week, si);
+
+      const otherRows = [...ongoing.filter(theirs), ...active.filter(theirs)];
+      if (otherRows.length) {
+        html += `</tbody></table><div class="done-divider" style="color:#94a3b8">Also on this matter — other assignees (${otherRows.length})</div>
+          <table class="task-table"><tbody>`;
+        for (const [tId, t] of otherRows) html += taskRow(tId, t, today, week, { ...si, isOther: true });
+      }
+    } else {
+      for (const [tId, t] of [...ongoing, ...active]) html += taskRow(tId, t, today, week, null);
+    }
 
     if (done.length) {
       html += `</tbody></table><div class="done-divider">✓ Completed (${done.length})</div>
         <table class="task-table"><tbody>`;
-      for (const [tId, t] of done) html += taskRow(tId, t, today, week);
+      for (const [tId, t] of done) html += taskRow(tId, t, today, week, si);
     }
 
     html += `</tbody></table>
@@ -362,9 +384,11 @@ function renderAttorneyTab(aId, a) {
   return html;
 }
 
-function taskRow(tId, t, today, week) {
+function taskRow(tId, t, today, week, si = null) {
   const dc = taskDateClass(t);
-  const rowCls = t.completed ? 'task-row is-done' : 'task-row';
+  const rowCls = t.completed   ? 'task-row is-done'
+               : si?.isOther   ? 'task-row task-row-other'
+               : 'task-row';
 
   let ctrl = '', dateCell = '', statusCell = '';
   if (t.isOngoing) {
@@ -387,11 +411,21 @@ function taskRow(tId, t, today, week) {
                : `<td></td>`;
   }
 
+  let assignCell = '';
+  if (si) {
+    const assigned = t.assignedTo || [];
+    const label = assigned.length
+      ? assigned.map(id => (attorneys[id]?.name||'').split(' ').pop()).filter(Boolean).join(', ')
+      : 'Everyone';
+    assignCell = `<td style="padding:8px 12px;vertical-align:top"><button class="assign-btn" onclick="openAssignDropdown('${tId}','${si.mId}',this)">${esc(label)}</button></td>`;
+  }
+
   return `<tr class="${rowCls}">
     <td>${ctrl}</td>
     <td class="task-desc">${esc(t.description)}</td>
     ${dateCell}${statusCell}
     <td class="task-notes">${esc(t.notes||'')}</td>
+    ${si ? assignCell : ''}
     <td class="task-actions">
       <button class="icon-btn" onclick="openEditTask('${tId}')" title="Edit">✎</button>
       <button class="icon-btn del" onclick="confirmDel('task','${tId}','${esc(t.description)}')" title="Delete">✕</button>
@@ -414,7 +448,7 @@ function renderManage() {
     const role = a.role || 'Attorney';
     if (role !== lastRole) {
       lastRole = role;
-      html += `<div style="padding:6px 16px;background:#f8fafc;border-bottom:1px solid var(--border);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">${role}s</div>`;
+      html += `<div style="padding:6px 16px;background:#f8fafc;border-bottom:1px solid var(--border);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">${role === 'You' ? 'You' : role + 's'}</div>`;
     }
     const mc = mattersFor(id).length;
     const roleStyle = ROLE_COLORS[role] || '';
@@ -429,6 +463,53 @@ function renderManage() {
     </div>`;
   }
   return html + '</div></div>';
+}
+
+// ── ASSIGNMENT DROPDOWN ───────────────────────────────────────
+let _assignDropdown = null;
+function getAssignDropdown() {
+  if (!_assignDropdown) {
+    _assignDropdown = document.createElement('div');
+    _assignDropdown.className = 'assign-dropdown hidden';
+    document.body.appendChild(_assignDropdown);
+    document.addEventListener('click', e => {
+      if (_assignDropdown && !_assignDropdown.classList.contains('hidden') &&
+          !_assignDropdown.contains(e.target) && !e.target.closest('.assign-btn')) {
+        _assignDropdown.classList.add('hidden');
+      }
+    });
+  }
+  return _assignDropdown;
+}
+
+function openAssignDropdown(tId, mId, btn) {
+  const dd = getAssignDropdown();
+  // Toggle closed if already open for this task
+  if (!dd.classList.contains('hidden') && dd._tId === tId) {
+    dd.classList.add('hidden'); return;
+  }
+  dd._tId = tId;
+  const t = tasks[tId], m = matters[mId];
+  const assigned = t?.assignedTo || [];
+  let html = `<div style="font-size:.7rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">Assign to</div>`;
+  (m?.attorneyIds || []).forEach(id => {
+    const a = attorneys[id]; if (!a) return;
+    html += `<label class="assign-check-row">
+      <input type="checkbox" value="${id}" ${assigned.includes(id) ? 'checked' : ''}
+        onchange="toggleTaskAssignee('${tId}','${id}',this.checked)"> ${esc(a.name)}
+    </label>`;
+  });
+  dd.innerHTML = html;
+  dd.classList.remove('hidden');
+  const rect = btn.getBoundingClientRect();
+  dd.style.top  = `${rect.bottom + window.scrollY + 4}px`;
+  dd.style.left = `${rect.left   + window.scrollX}px`;
+}
+
+async function toggleTaskAssignee(tId, aId, add) {
+  const current = tasks[tId]?.assignedTo || [];
+  const updated = add ? [...new Set([...current, aId])] : current.filter(id => id !== aId);
+  await db.collection('tasks').doc(tId).update({ assignedTo: updated });
 }
 
 // ── CRUD: MATTER ORDER ────────────────────────────────────────
