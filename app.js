@@ -200,7 +200,7 @@ function render() { renderTabs(); renderContent(); }
 
 function renderTabs() {
   const today = todayISO(), nav = document.getElementById('tab-nav');
-  let html = `<div class="ago-seal-nav"><img src="assets/ago-seal.png" alt="Vermont AGO" /></div>
+  let html = `<div class="ago-seal-nav"><img src="AGO-Logo-1_0.jpeg" alt="Vermont AGO" /></div>
     <button class="tab-btn${activeTab==='overview'?' active':''}" onclick="setTab('overview')">Overview</button>`;
   for (const [id, a] of sortedAttorneys()) {
     const overdueCount = mattersFor(id).flatMap(([mid]) => tasksFor(mid))
