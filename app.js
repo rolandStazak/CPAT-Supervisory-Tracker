@@ -169,8 +169,9 @@ function sortedAttorneys() {
 }
 
 function mattersFor(aId) {
+  const mOrder = attorneys[aId]?.matterOrder || {};
   return Object.entries(matters).filter(([,m]) => m.attorneyIds?.includes(aId))
-               .sort((a,b) => (a[1].order??0) - (b[1].order??0));
+               .sort(([a0,a1],[b0,b1]) => (mOrder[a0] ?? a1.order ?? 0) - (mOrder[b0] ?? b1.order ?? 0));
 }
 function tasksFor(mId) {
   return Object.entries(tasks).filter(([,t]) => t.matterId === mId)
@@ -216,7 +217,9 @@ function renderContent() {
   const el = document.getElementById('tab-content');
   // Don't clobber a textarea the user is actively typing in
   const active = document.activeElement;
-  if (active && active.tagName === 'TEXTAREA' && el.contains(active)) return;
+  const isEditingText = active && el.contains(active) &&
+    (active.tagName === 'TEXTAREA' || (active.tagName === 'INPUT' && (active.type === 'text' || active.type === 'number')));
+  if (isEditingText) return;
   if (activeTab === 'overview')    el.innerHTML = renderOverview();
   else if (activeTab === '__manage') el.innerHTML = renderManage();
   else {
@@ -314,8 +317,9 @@ function renderAttorneyTab(aId, a) {
   </div>`;
 
   const aMatters = mattersFor(aId);
-  if (!aMatters.length) return html + `<div class="empty-state">No matters yet. Click "+ Add Matter" to get started.</div>`;
-
+  if (!aMatters.length) {
+    html += `<div class="empty-state">No matters yet. Click "+ Add Matter" to get started.</div>`;
+  } else {
   for (let i = 0; i < aMatters.length; i++) {
     const [mId, m] = aMatters[i];
     const otherIds = (m.attorneyIds||[]).filter(id => id !== aId);
@@ -381,6 +385,8 @@ function renderAttorneyTab(aId, a) {
         <button class="add-task-btn" onclick="openAddTask('${mId}')">+ Add Task</button>
       </div></div>`;
   }
+  } // end else
+  html += renderAccomplishments(aId, a);
   return html;
 }
 
@@ -431,6 +437,58 @@ function taskRow(tId, t, today, week, si = null) {
       <button class="icon-btn del" onclick="confirmDel('task','${tId}','${esc(t.description)}')" title="Delete">✕</button>
     </td>
   </tr>`;
+}
+
+function renderAccomplishments(aId, a) {
+  const settlements = a.settlements || [];
+  let html = `<div style="margin-top:28px;background:var(--surface);border-radius:10px;border:1px solid var(--border);padding:18px 20px">
+    <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:16px">Accomplishments</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div>
+        <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">CIDs Sent</div>
+        <div style="display:flex;gap:6px">
+          <input type="number" id="cids-${aId}" value="${a.cidsCount ?? ''}" min="0" placeholder="0"
+            style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:.88rem;font-family:inherit;color:var(--text)">
+          <button class="btn btn-ghost btn-sm" onclick="saveAccomplishment('${aId}','cidsCount',document.getElementById('cids-${aId}').value)">Save</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Revenue Generated</div>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="revenue-${aId}" value="${esc(a.revenue||'')}" placeholder="e.g. $125,000"
+            style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:.88rem;font-family:inherit;color:var(--text)">
+          <button class="btn btn-ghost btn-sm" onclick="saveAccomplishment('${aId}','revenue',document.getElementById('revenue-${aId}').value)">Save</button>
+        </div>
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Settlements</div>`;
+  if (settlements.length) {
+    html += `<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">`;
+    settlements.forEach((s, i) => {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f8fafc;border-radius:6px;border:1px solid var(--border)">
+        <span style="flex:1;font-size:.86rem">${esc(s)}</span>
+        <button class="icon-btn del" onclick="removeSettlement('${aId}',${i})" title="Remove">✕</button>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `<div style="display:flex;gap:6px">
+      <input type="text" id="settlement-input-${aId}" placeholder="Add a settlement…"
+        style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:.88rem;font-family:inherit;color:var(--text)"
+        onkeydown="if(event.key==='Enter')addSettlement('${aId}')">
+      <button class="btn btn-primary btn-sm" onclick="addSettlement('${aId}')">Add</button>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Other Notes</div>
+    <textarea id="accomp-notes-${aId}" placeholder="Other notable accomplishments…"
+      onblur="saveAccomplishment('${aId}','accomplishmentNotes',this.value)"
+      style="width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:.88rem;font-family:inherit;color:var(--text);resize:vertical;min-height:75px;background:var(--surface)"
+    >${esc(a.accomplishmentNotes||'')}</textarea>
+  </div>
+</div>`;
+  return html;
 }
 
 // ── MANAGE TAB ────────────────────────────────────────────────
@@ -518,12 +576,11 @@ async function moveMatter(mId, aId, dir) {
   const idx = aMatters.findIndex(([id]) => id === mId);
   const swapIdx = idx + dir;
   if (swapIdx < 0 || swapIdx >= aMatters.length) return;
-  const thisOrder = aMatters[idx][1].order ?? idx;
-  const swapOrder = aMatters[swapIdx][1].order ?? swapIdx;
-  const batch = db.batch();
-  batch.update(db.collection('matters').doc(aMatters[idx][0]),     { order: swapOrder });
-  batch.update(db.collection('matters').doc(aMatters[swapIdx][0]), { order: thisOrder });
-  await batch.commit();
+  const mOrder = {};
+  aMatters.forEach(([id], i) => { mOrder[id] = i; });
+  mOrder[aMatters[idx][0]]     = swapIdx;
+  mOrder[aMatters[swapIdx][0]] = idx;
+  await db.collection('attorneys').doc(aId).update({ matterOrder: mOrder });
 }
 
 // ── CRUD: TASK ────────────────────────────────────────────────
@@ -532,6 +589,22 @@ async function toggleTask(id, completed, date) {
 }
 async function saveStatusNotes(aId, value) {
   await db.collection('attorneys').doc(aId).update({ statusNotes: value.trim() });
+}
+async function saveAccomplishment(aId, field, value) {
+  const val = field === 'cidsCount' ? (parseInt(value, 10) || 0) : value.trim();
+  await db.collection('attorneys').doc(aId).update({ [field]: val });
+}
+async function addSettlement(aId) {
+  const input = document.getElementById(`settlement-input-${aId}`);
+  const text = input?.value.trim();
+  if (!text) return;
+  input.value = ''; input.blur();
+  const current = attorneys[aId]?.settlements || [];
+  await db.collection('attorneys').doc(aId).update({ settlements: [...current, text] });
+}
+async function removeSettlement(aId, idx) {
+  const current = attorneys[aId]?.settlements || [];
+  await db.collection('attorneys').doc(aId).update({ settlements: current.filter((_,i) => i !== idx) });
 }
 
 // ── COMPLETE MODAL ────────────────────────────────────────────
@@ -712,7 +785,7 @@ function exportToExcel() {
     ['CPAT Supervisory Tracker'],
     [`Exported: ${new Date().toLocaleString('en-US')}`],
     [],
-    ['Staff Member', 'Role', 'Status Notes', 'Total Matters', 'Open Tasks', 'Overdue Tasks'],
+    ['Staff Member', 'Role', 'Status Notes', 'Total Matters', 'Open Tasks', 'Overdue Tasks', 'CIDs Sent', 'Revenue'],
   ];
   for (const [aId, a] of sortedAttorneys()) {
     const aMatters = mattersFor(aId);
@@ -722,10 +795,10 @@ function exportToExcel() {
       open++;
       if (t.dueDate && t.dueDate < today) overdue++;
     }));
-    ovRows.push([a.name, a.role || 'Attorney', a.statusNotes || '', aMatters.length, open, overdue]);
+    ovRows.push([a.name, a.role || 'Attorney', a.statusNotes || '', aMatters.length, open, overdue, a.cidsCount ?? '', a.revenue || '']);
   }
   const ovWs = XLSX.utils.aoa_to_sheet(ovRows);
-  ovWs['!cols'] = [{ wch: 22 }, { wch: 13 }, { wch: 42 }, { wch: 14 }, { wch: 11 }, { wch: 13 }];
+  ovWs['!cols'] = [{ wch: 22 }, { wch: 13 }, { wch: 42 }, { wch: 14 }, { wch: 11 }, { wch: 13 }, { wch: 11 }, { wch: 15 }];
   XLSX.utils.book_append_sheet(wb, ovWs, 'Overview');
 
   // ── Per-staff sheets ────────────────────────────────────────
@@ -776,6 +849,16 @@ function exportToExcel() {
       }
       rows.push([]); // blank row between matters
     }
+
+    rows.push([]);
+    rows.push(['ACCOMPLISHMENTS']);
+    rows.push(['CIDs Sent', a.cidsCount ?? '']);
+    rows.push(['Revenue Generated', a.revenue || '']);
+    if ((a.settlements || []).length) {
+      rows.push(['Settlements:']);
+      (a.settlements || []).forEach(s => rows.push(['', s]));
+    }
+    rows.push(['Other Notes', a.accomplishmentNotes || '']);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [{ wch: 50 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 52 }];
