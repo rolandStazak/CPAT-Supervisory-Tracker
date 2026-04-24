@@ -257,7 +257,7 @@ function renderOverview() {
     <div class="stat-card stat-due-today"><div class="stat-val">${dueToday}</div><div class="stat-lbl">Due Today</div></div>
   </div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-    <h2 style="font-size:.9rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Staff at a Glance</h2>
+    <h2 style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Staff at a Glance</h2>
     <button class="btn btn-ghost" onclick="exportToExcel()" style="font-size:.8rem">⬇ Export to Excel</button>
   </div>`;
 
@@ -307,7 +307,7 @@ function renderAttorneyTab(aId, a) {
     <button class="btn btn-primary" onclick="openAddMatter('${aId}')">+ Add Matter</button>
   </div>
   <div style="margin-bottom:18px">
-    <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Recent Status Notes</div>
+    <div style="font-size:.69rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Recent Status Notes</div>
     <textarea
       id="status-notes-${aId}"
       placeholder="e.g. Out on vacation next week, sick Tuesday…"
@@ -441,11 +441,11 @@ function taskRow(tId, t, today, week, si = null) {
 
 function renderAccomplishments(aId, a) {
   const settlements = a.settlements || [];
-  let html = `<div style="margin-top:28px;background:var(--surface);border-radius:10px;border:1px solid var(--border);padding:18px 20px">
-    <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:16px">Accomplishments</div>
+  let html = `<div style="margin-top:28px;background:var(--surface);border-radius:10px;border:1px solid var(--border);border-top:3px solid var(--primary-mid);padding:18px 20px">
+    <div style="font-size:.69rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px">Accomplishments</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <div>
-        <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">CIDs Sent</div>
+        <div style="font-size:.69rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">CIDs Sent</div>
         <div style="display:flex;gap:6px">
           <input type="number" id="cids-${aId}" value="${a.cidsCount ?? ''}" min="0" placeholder="0"
             style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:.88rem;font-family:inherit;color:var(--text)">
@@ -453,7 +453,7 @@ function renderAccomplishments(aId, a) {
         </div>
       </div>
       <div>
-        <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Revenue Generated</div>
+        <div style="font-size:.69rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Revenue Generated</div>
         <div style="display:flex;gap:6px">
           <input type="text" id="revenue-${aId}" value="${esc(a.revenue||'')}" placeholder="e.g. $125,000"
             style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:.88rem;font-family:inherit;color:var(--text)">
@@ -462,7 +462,7 @@ function renderAccomplishments(aId, a) {
       </div>
     </div>
     <div style="margin-bottom:16px">
-      <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Settlements</div>`;
+      <div style="font-size:.69rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Settlements</div>`;
   if (settlements.length) {
     html += `<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">`;
     settlements.forEach((s, i) => {
@@ -481,7 +481,7 @@ function renderAccomplishments(aId, a) {
     </div>
   </div>
   <div>
-    <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Other Notes</div>
+    <div style="font-size:.69rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Other Notes</div>
     <textarea id="accomp-notes-${aId}" placeholder="Other notable accomplishments…"
       onblur="saveAccomplishment('${aId}','accomplishmentNotes',this.value)"
       style="width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:.88rem;font-family:inherit;color:var(--text);resize:vertical;min-height:75px;background:var(--surface)"
@@ -506,7 +506,7 @@ function renderManage() {
     const role = a.role || 'Attorney';
     if (role !== lastRole) {
       lastRole = role;
-      html += `<div style="padding:6px 16px;background:#f8fafc;border-bottom:1px solid var(--border);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">${role === 'You' ? 'You' : role + 's'}</div>`;
+      html += `<div style="padding:6px 18px;background:var(--surface-2);border-bottom:1px solid var(--border);font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">${role === 'You' ? 'You' : role + 's'}</div>`;
     }
     const mc = mattersFor(id).length;
     const roleStyle = ROLE_COLORS[role] || '';
