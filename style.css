@@ -1,7 +1,7 @@
 :root {
-  --primary:       #215732;
-  --primary-mid:   #2d7a44;
-  --primary-light: #eaf4ee;
+  --primary:       #033003;
+  --primary-mid:   #215732;
+  --primary-light: #e8f5ea;
   --danger:        #c0392b;
   --warn:          #b45309;
   --success:       #15803d;
@@ -28,7 +28,7 @@ body {
 .hidden { display: none !important; }
 
 /* Login */
-#login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(145deg, #0c2216 0%, #215732 55%, #2d7a44 100%); }
+#login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(145deg, #011501 0%, #033003 55%, #215732 100%); }
 .login-card { background: var(--surface); border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,.22); padding: 52px 44px; text-align: center; max-width: 380px; width: 100%; }
 .login-card h1 { font-size: 1.35rem; margin-bottom: 10px; color: var(--primary); font-weight: 700; letter-spacing: -.015em; }
 .login-card p { color: var(--muted); margin-bottom: 32px; font-size: .875rem; line-height: 1.6; }
@@ -150,7 +150,7 @@ header h1 { font-size: .82rem; font-weight: 700; letter-spacing: .1em; text-tran
 .form-group { margin-bottom: 15px; }
 .form-group label { display: block; font-size: .69rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
 .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 7px; font-size: .875rem; font-family: inherit; color: var(--text); transition: border-color .15s, box-shadow .15s; background: var(--surface); }
-.form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(33,87,50,.12); }
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(3,48,3,.12); }
 .form-group textarea { min-height: 75px; resize: vertical; }
 .check-row { display: flex; align-items: center; gap: 8px; font-size: .875rem; cursor: pointer; padding: 3px 0; color: var(--text); }
 .check-row input { width: auto; cursor: pointer; }
