@@ -200,7 +200,8 @@ function render() { renderTabs(); renderContent(); }
 
 function renderTabs() {
   const today = todayISO(), nav = document.getElementById('tab-nav');
-  let html = `<button class="tab-btn${activeTab==='overview'?' active':''}" onclick="setTab('overview')">Overview</button>`;
+  let html = `<div class="ago-seal-nav"><img src="assets/ago-seal.png" alt="Vermont AGO" /></div>
+    <button class="tab-btn${activeTab==='overview'?' active':''}" onclick="setTab('overview')">Overview</button>`;
   for (const [id, a] of sortedAttorneys()) {
     const overdueCount = mattersFor(id).flatMap(([mid]) => tasksFor(mid))
       .filter(([,t]) => !t.completed && !t.isOngoing && t.dueDate && t.dueDate < today).length;
@@ -441,7 +442,7 @@ function taskRow(tId, t, today, week, si = null) {
 
 function renderAccomplishments(aId, a) {
   const settlements = a.settlements || [];
-  let html = `<div style="margin-top:28px;background:var(--surface);border-radius:10px;border:1px solid var(--border);border-top:3px solid var(--primary-mid);padding:18px 20px">
+  let html = `<div style="margin-top:28px;background:var(--surface);border-radius:10px;border:1px solid var(--border);border-top:3px solid var(--primary);padding:18px 20px">
     <div style="font-size:.69rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px">Accomplishments</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <div>
