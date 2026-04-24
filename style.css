@@ -40,7 +40,8 @@ body {
 /* App shell */
 #app { display: flex; flex-direction: column; min-height: 100vh; }
 header { background: var(--primary); color: #fff; padding: 0 28px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid rgba(255,255,255,.07); }
-header h1 { font-size: .82rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .9; }
+header h1 { font-size: 1rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .9; }
+.header-left { display: flex; align-items: center; gap: 12px; }
 .header-right { display: flex; align-items: center; gap: 16px; }
 #user-email { font-size: .74rem; opacity: .6; }
 .btn-signout { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); color: rgba(255,255,255,.88); padding: 5px 13px; border-radius: 6px; cursor: pointer; font-size: .75rem; font-weight: 500; letter-spacing: .025em; font-family: inherit; transition: background .15s; }
@@ -177,8 +178,7 @@ header h1 { font-size: .82rem; font-weight: 700; letter-spacing: .1em; text-tran
 
 /* Vermont branding */
 .vt-logo-header { height: 30px; width: auto; opacity: .88; flex-shrink: 0; }
-.ago-seal-nav { display: flex; align-items: center; padding: 0 10px 0 14px; flex-shrink: 0; border-right: 1px solid var(--border); }
-.ago-seal-nav img { height: 34px; width: 34px; object-fit: contain; }
+.ago-seal-header { height: 40px; width: 40px; object-fit: contain; flex-shrink: 0; border-radius: 50%; }
 
 @media (max-width: 640px) {
   #tab-content { padding: 16px; }
