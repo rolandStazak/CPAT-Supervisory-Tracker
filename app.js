@@ -75,6 +75,19 @@ function startListeners() {
 async function seedIfEmpty() {
   if (Object.keys(attorneys).length > 0) return;
 
+  // Use a Firestore sentinel to prevent re-seeding across sessions/tabs
+  const sentinelRef = db.collection('_meta').doc('seeded');
+  try {
+    await db.runTransaction(async tx => {
+      const sentinel = await tx.get(sentinelRef);
+      if (sentinel.exists) return;
+      tx.set(sentinelRef, { at: new Date() });
+    });
+  } catch (e) { return; }
+
+  // Re-check after transaction in case data arrived while we waited
+  if (Object.keys(attorneys).length > 0) return;
+
   function xl(serial) { // Excel serial → ISO date string
     if (!serial) return null;
     return new Date((serial - 25569) * 86400 * 1000).toISOString().slice(0, 10);
