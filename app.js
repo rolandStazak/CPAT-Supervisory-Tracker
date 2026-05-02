@@ -255,19 +255,16 @@ const ROLE_COLORS = {
 function renderOverview() {
   const today = todayISO(), week = weekISO();
   const { mon, fri } = weekBoundsISO();
-  // Count only tasks that are assigned to someone (or unassigned), not orphaned tasks
-  const assignedTaskIds = new Set(
-    Object.entries(tasks)
-      .filter(([,t]) => !t.completed && !t.isOngoing && t.dueDate)
-      .filter(([,t]) => {
-        if (!t.assignedTo?.length) return true; // unassigned = everyone's
-        return t.assignedTo.some(aId => attorneys[aId]);
-      })
+  // Only count tasks on matters that have at least one current staff member
+  const activeMatterIds = new Set(
+    Object.entries(matters)
+      .filter(([,m]) => m.attorneyIds?.some(aId => attorneys[aId]))
       .map(([id]) => id)
   );
   let overdue = 0, dueToday = 0, dueThisWeek = 0;
-  assignedTaskIds.forEach(id => {
-    const t = tasks[id];
+  Object.values(tasks).forEach(t => {
+    if (t.completed || t.isOngoing || !t.dueDate) return;
+    if (!activeMatterIds.has(t.matterId)) return;
     if (t.dueDate < today) overdue++;
     if (t.dueDate === today) dueToday++;
     if (t.dueDate >= mon && t.dueDate <= fri) dueThisWeek++;
