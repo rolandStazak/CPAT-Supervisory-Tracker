@@ -216,7 +216,8 @@ function renderTabs() {
   let html = `<button class="tab-btn${activeTab==='overview'?' active':''}" onclick="setTab('overview')">Overview</button>`;
   for (const [id, a] of sortedAttorneys()) {
     const overdueCount = mattersFor(id).flatMap(([mid]) => tasksFor(mid))
-      .filter(([,t]) => !t.completed && !t.isOngoing && t.dueDate && t.dueDate < today).length;
+      .filter(([,t]) => !t.completed && !t.isOngoing && t.dueDate && t.dueDate < today
+        && (!t.assignedTo?.length || t.assignedTo.includes(id))).length;
     const cls = `tab-btn${activeTab===id?' active':''}${overdueCount?' has-overdue':''}`;
     html += `<button class="${cls}" onclick="setTab('${id}')" title="${esc(a.name)}">${esc(a.name)}</button>`;
   }
