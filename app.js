@@ -255,9 +255,19 @@ const ROLE_COLORS = {
 function renderOverview() {
   const today = todayISO(), week = weekISO();
   const { mon, fri } = weekBoundsISO();
+  // Count only tasks that are assigned to someone (or unassigned), not orphaned tasks
+  const assignedTaskIds = new Set(
+    Object.entries(tasks)
+      .filter(([,t]) => !t.completed && !t.isOngoing && t.dueDate)
+      .filter(([,t]) => {
+        if (!t.assignedTo?.length) return true; // unassigned = everyone's
+        return t.assignedTo.some(aId => attorneys[aId]);
+      })
+      .map(([id]) => id)
+  );
   let overdue = 0, dueToday = 0, dueThisWeek = 0;
-  Object.values(tasks).forEach(t => {
-    if (t.completed || t.isOngoing || !t.dueDate) return;
+  assignedTaskIds.forEach(id => {
+    const t = tasks[id];
     if (t.dueDate < today) overdue++;
     if (t.dueDate === today) dueToday++;
     if (t.dueDate >= mon && t.dueDate <= fri) dueThisWeek++;
@@ -277,14 +287,18 @@ function renderOverview() {
 
   for (const [aId, a] of sortedAttorneys()) {
     const aMatters = mattersFor(aId);
-    let aOverdue = 0, aUpcoming = 0;
+    let aOverdue = 0, aDueToday = 0, aUpcoming = 0;
     aMatters.forEach(([mid]) => tasksFor(mid).forEach(([,t]) => {
       if (t.completed || t.isOngoing || !t.dueDate) return;
-      if (t.dueDate < today) aOverdue++; else if (t.dueDate <= week) aUpcoming++;
+      if (t.assignedTo?.length && !t.assignedTo.includes(aId)) return;
+      if (t.dueDate < today) aOverdue++;
+      else if (t.dueDate === today) aDueToday++;
+      else if (t.dueDate <= week) aUpcoming++;
     }));
-    let badges = aOverdue ? `<span class="badge badge-overdue">${aOverdue} overdue</span>` : '';
+    let badges = aOverdue   ? `<span class="badge badge-overdue">${aOverdue} overdue</span>` : '';
+    badges += aDueToday ? `<span class="badge badge-due-today">${aDueToday} due today</span>` : '';
     badges += aUpcoming ? `<span class="badge badge-upcoming">${aUpcoming} due soon</span>` : '';
-    if (!aOverdue && !aUpcoming) badges = `<span class="badge badge-ok">On track</span>`;
+    if (!aOverdue && !aDueToday && !aUpcoming) badges = `<span class="badge badge-ok">On track</span>`;
 
     const roleStyle = ROLE_COLORS[a.role||'Attorney'] || '';
     html += `<div class="overview-card">
