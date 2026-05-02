@@ -134,7 +134,7 @@ header h1 { font-size: 1rem; font-weight: 700; letter-spacing: .08em; text-trans
 .icon-btn:hover { background: var(--bg); color: var(--text); }
 .icon-btn.del:hover { background: #fef2f2; color: var(--danger); }
 .ongoing-pill { font-size: .72rem; font-weight: 700; padding: 2px 9px; border-radius: 10px; background: #ecfeff; color: var(--ongoing); border: 1px solid #a5f3fc; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
-.done-pill { font-size: .72rem; font-weight: 700; padding: 2px 9px; border-radius: 10px; background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
+.done-pill { font-size: .72rem; font-weight: 700; padding: 2px 9px; border-radius: 10px; background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; white-space: nowrap; }
 .done-divider { padding: 5px 12px; background: var(--surface-2); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; border-top: 1px solid var(--border); }
 .add-task-btn { background: none; border: 1px dashed var(--border); color: var(--muted); padding: 7px 14px; border-radius: 7px; cursor: pointer; font-size: .84rem; width: 100%; font-family: inherit; transition: border-color .15s, color .15s, background .15s; }
 .add-task-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
