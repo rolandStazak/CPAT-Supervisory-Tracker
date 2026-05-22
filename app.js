@@ -22,6 +22,7 @@ let tasks     = {};  // { id: { matterId, description, dueDate, isOngoing, compl
 let activeTab = 'overview';
 let listeners = [];
 let seeded    = false;
+let completedCollapsed = JSON.parse(localStorage.getItem('completedCollapsed') || '{}');
 
 // ── AUTH ──────────────────────────────────────────────────────
 document.getElementById('btn-signin').onclick = () =>
@@ -204,6 +205,15 @@ function taskDateClass(t) {
 }
 
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function toggleCompleted(mId) {
+  completedCollapsed[mId] = !completedCollapsed[mId];
+  localStorage.setItem('completedCollapsed', JSON.stringify(completedCollapsed));
+  const rows    = document.getElementById(`done-rows-${mId}`);
+  const divider = document.getElementById(`done-divider-${mId}`);
+  if (rows)    rows.style.display = completedCollapsed[mId] ? 'none' : '';
+  if (divider) divider.querySelector('.done-toggle-arrow').textContent = completedCollapsed[mId] ? '▶' : '▼';
+}
 document.querySelectorAll('.modal-overlay').forEach(o =>
   o.addEventListener('click', e => { if (e.target === o) o.classList.add('hidden'); })
 );
@@ -399,14 +409,20 @@ function renderAttorneyTab(aId, a) {
       for (const [tId, t] of [...ongoing, ...active]) html += taskRow(tId, t, today, week, null);
     }
 
+    html += `</tbody></table>`;
+
     if (done.length) {
-      html += `</tbody></table><div class="done-divider">✓ Completed (${done.length})</div>
+      const collapsed = !!completedCollapsed[mId];
+      html += `<div class="done-divider done-toggle" id="done-divider-${mId}" data-count="${done.length}" onclick="toggleCompleted('${mId}')">
+        <span class="done-toggle-arrow">${collapsed ? '▶' : '▼'}</span> ✓ Completed (${done.length})
+      </div>
+      <div id="done-rows-${mId}"${collapsed ? ' style="display:none"' : ''}>
         <table class="task-table"><tbody>`;
       for (const [tId, t] of done) html += taskRow(tId, t, today, week, si);
+      html += `</tbody></table></div>`;
     }
 
-    html += `</tbody></table>
-      <div style="padding:8px 12px">
+    html += `<div style="padding:8px 12px">
         <button class="add-task-btn" onclick="openAddTask('${mId}')">+ Add Task</button>
       </div></div>`;
   }
