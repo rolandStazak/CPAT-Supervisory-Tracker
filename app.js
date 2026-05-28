@@ -207,12 +207,13 @@ function taskDateClass(t) {
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
 function toggleCompleted(mId) {
-  completedCollapsed[mId] = !completedCollapsed[mId];
+  const collapsed = completedCollapsed[mId] !== false; // current state
+  completedCollapsed[mId] = !collapsed; // false = expanded, true = collapsed
   localStorage.setItem('completedCollapsed', JSON.stringify(completedCollapsed));
   const rows    = document.getElementById(`done-rows-${mId}`);
   const divider = document.getElementById(`done-divider-${mId}`);
-  if (rows)    rows.style.display = completedCollapsed[mId] ? 'none' : '';
-  if (divider) divider.querySelector('.done-toggle-arrow').textContent = completedCollapsed[mId] ? '▶' : '▼';
+  if (rows)    rows.style.display = !collapsed ? 'none' : '';
+  if (divider) divider.querySelector('.done-toggle-arrow').textContent = !collapsed ? '▶' : '▼';
 }
 document.querySelectorAll('.modal-overlay').forEach(o =>
   o.addEventListener('click', e => { if (e.target === o) o.classList.add('hidden'); })
@@ -412,7 +413,7 @@ function renderAttorneyTab(aId, a) {
     html += `</tbody></table>`;
 
     if (done.length) {
-      const collapsed = !!completedCollapsed[mId];
+      const collapsed = completedCollapsed[mId] !== false;
       html += `<div class="done-divider done-toggle" id="done-divider-${mId}" data-count="${done.length}" onclick="toggleCompleted('${mId}')">
         <span class="done-toggle-arrow">${collapsed ? '▶' : '▼'}</span> ✓ Completed (${done.length})
       </div>
