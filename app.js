@@ -343,6 +343,16 @@ function renderAttorneyTab(aId, a) {
     <button class="btn btn-primary" onclick="openAddMatter('${aId}')">+ Add Matter</button>
   </div>
   <div style="margin-bottom:18px">
+    <div style="font-size:.69rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Last Supervisory Check-In</div>
+    <input
+      type="date"
+      id="checkin-date-${aId}"
+      value="${esc(a.lastCheckIn||'')}"
+      onchange="saveLastCheckIn('${aId}', this.value)"
+      style="padding:7px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:.88rem;font-family:inherit;color:var(--text);background:var(--surface)"
+    />
+  </div>
+  <div style="margin-bottom:18px">
     <div style="font-size:.69rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Recent Status Notes</div>
     <textarea
       id="status-notes-${aId}"
@@ -631,6 +641,9 @@ async function toggleTask(id, completed, date) {
 }
 async function saveStatusNotes(aId, value) {
   await db.collection('attorneys').doc(aId).update({ statusNotes: value.trim() });
+}
+async function saveLastCheckIn(aId, value) {
+  await db.collection('attorneys').doc(aId).update({ lastCheckIn: value || null });
 }
 async function saveAccomplishment(aId, field, value) {
   const val = field === 'cidsCount' ? (parseInt(value, 10) || 0) : value.trim();
