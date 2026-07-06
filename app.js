@@ -81,7 +81,7 @@ async function seedIfEmpty() {
   try {
     await db.runTransaction(async tx => {
       const sentinel = await tx.get(sentinelRef);
-      if (sentinel.exists) return;
+      if (sentinel.exists) throw new Error('already seeded');
       tx.set(sentinelRef, { at: new Date() });
     });
   } catch (e) { return; }
